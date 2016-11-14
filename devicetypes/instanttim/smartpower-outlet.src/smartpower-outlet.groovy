@@ -50,8 +50,8 @@ metadata {
 				"http://cdn.device-gse.smartthings.com/Outlet/US/OutletUS2.jpg"
 				])
 		}
-        input name: "prefLogPower", type: "bool", title: "Show power usage?", description: "", required: true
-        input name: "prefLogPowerDelta", type: "decimal", title: "Only show changes over…", description: "Enter watts", required: true
+        input name: "prefLogPower", type: "bool", title: "Show power in activity feed?", description: "", required: true
+        input name: "prefLogPowerDelta", type: "decimal", title: "Only if power changes by…", description: "Enter watts", required: true
 	}
 
 	// UI tile definitions
@@ -104,9 +104,13 @@ def parse(String description) {
             
             if (prefLogPower == true) {
             	if (changeValue > prefLogPowerDelta || powerValue == 0 || state.lastPowerValue == 0) {
-		            event = createEvent(name: "power", value: powerValue, descriptionText: '{{ device.displayName }} power is {{ value }} Watts', translatable: true)
+		            event = createEvent(name: "power", value: powerValue, displayed: true, descriptionText: '{{ device.displayName }} power is {{ value }} Watts', translatable: true)
 	                state.lastPowerValue = powerValue
+                } else {
+                	event = createEvent(name: "power", value: powerValue, displayed: false, descriptionText: '{{ device.displayName }} power is {{ value }} Watts', translatable: true)
                 }
+            } else {
+	            event = createEvent(name: "power", value: powerValue, displayed: false, descriptionText: '{{ device.displayName }} power is {{ value }} Watts', translatable: true)
             }
 			/*
 				Dividing by 10 as the Divisor is 10000 and unit is kW for the device. AttrId: 0302 and 0300. Simplifying to 10
