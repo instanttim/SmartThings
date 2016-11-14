@@ -96,6 +96,18 @@ def parse(String description) {
 		}
 		else if (finalResult.type == "power") {
 			def powerValue = (finalResult.value as Integer)/10
+            def changeValue = powerValue - state.lastPowerValue
+
+			if (changeValue < 0) {
+            	changeValue = -changeValue
+			}
+            
+            if (prefLogPower == true) {
+            	if (changeValue > prefLogPowerDelta || powerValue == 0 || state.lastPowerValue == 0) {
+		            event = createEvent(name: "power", value: powerValue, descriptionText: '{{ device.displayName }} power is {{ value }} Watts', translatable: true)
+	                state.lastPowerValue = powerValue
+                }
+            }
 			/*
 				Dividing by 10 as the Divisor is 10000 and unit is kW for the device. AttrId: 0302 and 0300. Simplifying to 10
 				power level is an integer. The exact power level with correct units needs to be handled in the device type
@@ -153,6 +165,9 @@ def configure() {
 
 	// OnOff minReportTime 0 seconds, maxReportTime 5 min. Reporting interval if no activity
 	refresh() + zigbee.onOffConfig(0, 300) + powerConfig()
+    
+    // start the lastPowerValue at zero
+    state.lastPowerValue = 0
 }
 
 //power config for devices with min reporting interval as 1 seconds and reporting interval if no activity as 10min (600s)
