@@ -7,5 +7,5 @@ Works with:
 ## Modifications
 
 This is my modified version of Samsung's DTH to allow for the configuring of the power reporting feature.
-* Show Power Usage (on/off): This stops all power reporting from the device entirely.
-* Only show changes over... (number): This let's you set a threshold of change required for the power usage to be logged.
+* Show power in activity feed? (on/off): This stops all power usage from showing in "recently".
+* Only if power changes by… (number): This let's you set a threshold of change required for the power usage to be logged.
