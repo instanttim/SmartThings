@@ -1,6 +1,7 @@
 /*
  *  Copyright 2016 SmartThings
- *
+ *  Modifications by Timothy B Martin (instanttim)
+ * 
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not
  *  use this file except in compliance with the License. You may obtain a copy
  *  of the License at:
@@ -16,7 +17,7 @@
 
 metadata {
 	// Automatically generated. Make future change here.
-	definition (name: "SmartPower Outlet", namespace: "smartthings", author: "SmartThings") {
+	definition (name: "SmartPower Outlet (Preferences)", namespace: "instanttim", author: "Timothy Martin") {
 		capability "Actuator"
 		capability "Switch"
 		capability "Power Meter"
@@ -49,6 +50,8 @@ metadata {
 				"http://cdn.device-gse.smartthings.com/Outlet/US/OutletUS2.jpg"
 				])
 		}
+        input name: "prefLogPower", type: "bool", title: "Show power usage?", description: "", required: true
+        input name: "prefLogPowerDelta", type: "decimal", title: "Only show changes over…", description: "Enter watts", required: true
 	}
 
 	// UI tile definitions
@@ -93,7 +96,6 @@ def parse(String description) {
 		}
 		else if (finalResult.type == "power") {
 			def powerValue = (finalResult.value as Integer)/10
-			event = createEvent(name: "power", value: powerValue, descriptionText: '{{ device.displayName }} power is {{ value }} Watts', translatable: true)
 			/*
 				Dividing by 10 as the Divisor is 10000 and unit is kW for the device. AttrId: 0302 and 0300. Simplifying to 10
 				power level is an integer. The exact power level with correct units needs to be handled in the device type
