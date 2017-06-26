@@ -86,7 +86,7 @@ def parse(String description) {
 
 	if (state.lastPowerValue == null) {
 		// initialize the last power value used to throttle updates.
-		def state.lastPowerValue = 0;
+		state.lastPowerValue = 0
 	}
 
 	//TODO: Remove this after getKnownDescription can parse it automatically
