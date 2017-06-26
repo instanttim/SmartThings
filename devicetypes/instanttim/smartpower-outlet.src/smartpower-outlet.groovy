@@ -84,6 +84,11 @@ def parse(String description) {
 	def finalResult = zigbee.getKnownDescription(description)
 	def event = [:]
 
+	if (state.lastPowerValue == null) {
+		// initialize the last power value used to throttle updates.
+		def state.lastPowerValue = 0;
+	}
+
 	//TODO: Remove this after getKnownDescription can parse it automatically
 	if (!finalResult && description!="updated")
 		finalResult = getPowerDescription(zigbee.parseDescriptionAsMap(description))
@@ -169,9 +174,6 @@ def configure() {
 
 	// OnOff minReportTime 0 seconds, maxReportTime 5 min. Reporting interval if no activity
 	refresh() + zigbee.onOffConfig(0, 300) + powerConfig()
-    
-    // start the lastPowerValue at zero
-    state.lastPowerValue = 0
 }
 
 //power config for devices with min reporting interval as 1 seconds and reporting interval if no activity as 10min (600s)
