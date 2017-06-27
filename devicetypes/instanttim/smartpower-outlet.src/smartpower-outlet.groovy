@@ -25,10 +25,13 @@ metadata {
 		capability "Refresh"
 		capability "Sensor"
 		capability "Health Check"
+		capability "Light"
+		capability "Outlet"
 
-		fingerprint profileId: "0104", inClusters: "0000,0003,0004,0005,0006,0B04,0B05", outClusters: "0019", manufacturer: "CentraLite",  model: "3200", deviceJoinName: "Outlet"
-		fingerprint profileId: "0104", inClusters: "0000,0003,0004,0005,0006,0B04,0B05", outClusters: "0019", manufacturer: "CentraLite",  model: "3200-Sgb", deviceJoinName: "Outlet"
-		fingerprint profileId: "0104", inClusters: "0000,0003,0004,0005,0006,0B04,0B05", outClusters: "0019", manufacturer: "CentraLite",  model: "4257050-RZHAC", deviceJoinName: "Outlet"
+		fingerprint profileId: "0104", inClusters: "0000,0003,0004,0005,0006,0B04,0B05", outClusters: "0019", manufacturer: "CentraLite", model: "3200", deviceJoinName: "Outlet"
+		fingerprint profileId: "0104", inClusters: "0000,0003,0004,0005,0006,0B04,0B05", outClusters: "0019", manufacturer: "CentraLite", model: "3200-Sgb", deviceJoinName: "Outlet"
+		fingerprint profileId: "0104", inClusters: "0000,0003,0004,0005,0006,0B04,0B05", outClusters: "0019", manufacturer: "CentraLite", model: "4257050-RZHAC", deviceJoinName: "Outlet"
+		fingerprint profileId: "0104", inClusters: "0000, 0003, 0004, 0005, 0006, 000F, 0B04", outClusters: "0019", manufacturer: "SmartThings", model: "outletv4", deviceJoinName: "Outlet"
 		fingerprint profileId: "0104", inClusters: "0000,0003,0004,0005,0006,0B04,0B05", outClusters: "0019"
 	}
 
@@ -46,34 +49,34 @@ metadata {
 	preferences {
 		section {
 			image(name: 'educationalcontent', multiple: true, images: [
-				"http://cdn.device-gse.smartthings.com/Outlet/US/OutletUS1.jpg",
-				"http://cdn.device-gse.smartthings.com/Outlet/US/OutletUS2.jpg"
-				])
+					"http://cdn.device-gse.smartthings.com/Outlet/US/OutletUS1.jpg",
+					"http://cdn.device-gse.smartthings.com/Outlet/US/OutletUS2.jpg"
+			])
 		}
         input name: "prefLogPower", type: "bool", title: "Show power in activity feed?", description: "", required: true
-        input name: "prefLogPowerDelta", type: "decimal", title: "Only if power changes by…", description: "Enter watts", required: true
+        input name: "prefLogPowerDelta", type: "decimal", title: "Only if power changes by…", description: "Enter watts", defaultValue: 10, required: true
 	}
 
 	// UI tile definitions
 	tiles(scale: 2) {
-		multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true){
-			tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
-				attributeState "on", label: 'On', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#79b821", nextState: "turningOff"
+		multiAttributeTile(name: "switch", type: "lighting", width: 6, height: 4, canChangeIcon: true) {
+			tileAttribute("device.switch", key: "PRIMARY_CONTROL") {
+				attributeState "on", label: 'On', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#00A0DC", nextState: "turningOff"
 				attributeState "off", label: 'Off', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff", nextState: "turningOn"
-				attributeState "turningOn", label: 'Turning On', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#79b821", nextState: "turningOff"
+				attributeState "turningOn", label: 'Turning On', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#00A0DC", nextState: "turningOff"
 				attributeState "turningOff", label: 'Turning Off', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff", nextState: "turningOn"
 			}
-			tileAttribute ("power", key: "SECONDARY_CONTROL") {
-				attributeState "power", label:'${currentValue} W'
+			tileAttribute("power", key: "SECONDARY_CONTROL") {
+				attributeState "power", label: '${currentValue} W'
 			}
 		}
 
 		standardTile("refresh", "device.power", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-			state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
+			state "default", label: '', action: "refresh.refresh", icon: "st.secondary.refresh"
 		}
 
 		main "switch"
-		details(["switch","refresh"])
+		details(["switch", "refresh"])
 	}
 }
 
@@ -81,72 +84,54 @@ metadata {
 def parse(String description) {
 	log.debug "description is $description"
 
-	def finalResult = zigbee.getKnownDescription(description)
-	def event = [:]
+	def event = zigbee.getEvent(description)
 
 	if (state.lastPowerValue == null) {
 		// initialize the last power value used to throttle updates.
 		state.lastPowerValue = 0
 	}
 
-	//TODO: Remove this after getKnownDescription can parse it automatically
-	if (!finalResult && description!="updated")
-		finalResult = getPowerDescription(zigbee.parseDescriptionAsMap(description))
-
-	if (finalResult) {
-		log.info "final result = $finalResult"
-		if (finalResult.type == "update") {
-			log.info "$device updates: ${finalResult.value}"
-			event = null
-		}
-		else if (finalResult.type == "power") {
-			def powerValue = (finalResult.value as Integer)/10
-            def changeValue = powerValue - state.lastPowerValue
-
+	if (event) {
+		if (event.name == "power") {
+			def powerValue = (event.value as Integer) / 10
+			def changeValue = powerValue - state.lastPowerValue
+			def showPowerActivity = prefLogPower
+            
 			if (changeValue < 0) {
             	changeValue = -changeValue
 			}
-            
-            if (prefLogPower == true) {
-            	if (changeValue > prefLogPowerDelta || powerValue == 0 || state.lastPowerValue == 0) {
-		            event = createEvent(name: "power", value: powerValue, displayed: true, descriptionText: '{{ device.displayName }} power is {{ value }} Watts', translatable: true)
+			
+            if (showPowerActivity == true) {
+            	if (changeValue > prefLogPowerDelta) {
 	                state.lastPowerValue = powerValue
                 } else {
-                	event = createEvent(name: "power", value: powerValue, displayed: false, descriptionText: '{{ device.displayName }} power is {{ value }} Watts', translatable: true)
+					showPowerActivity = false
                 }
-            } else {
-	            event = createEvent(name: "power", value: powerValue, displayed: false, descriptionText: '{{ device.displayName }} power is {{ value }} Watts', translatable: true)
             }
-			/*
-				Dividing by 10 as the Divisor is 10000 and unit is kW for the device. AttrId: 0302 and 0300. Simplifying to 10
-				power level is an integer. The exact power level with correct units needs to be handled in the device type
-				to account for the different Divisor value (AttrId: 0302) and POWER Unit (AttrId: 0300). CLUSTER for simple metering is 0702
-			*/
+            
+			event = createEvent(name: event.name, value: powerValue, descriptionText: '{{ device.displayName }} power is {{ value }} Watts', displayed: showPowerActivity, translatable: true)
+            
+		} else if (event.name == "switch") {
+			def descriptionText = event.value == "on" ? '{{ device.displayName }} is On' : '{{ device.displayName }} is Off'
+			event = createEvent(name: event.name, value: event.value, descriptionText: descriptionText, translatable: true)
 		}
-		else {
-			def descriptionText = finalResult.value == "on" ? '{{ device.displayName }} is On' : '{{ device.displayName }} is Off'
-			event = createEvent(name: finalResult.type, value: finalResult.value, descriptionText: descriptionText, translatable: true)
-		}
-	}
-	else {
+	} else {
 		def cluster = zigbee.parse(description)
 
-		if (cluster && cluster.clusterId == 0x0006 && cluster.command == 0x07){
+		if (cluster && cluster.clusterId == 0x0006 && cluster.command == 0x07) {
 			if (cluster.data[0] == 0x00) {
 				log.debug "ON/OFF REPORTING CONFIG RESPONSE: " + cluster
 				event = createEvent(name: "checkInterval", value: 60 * 12, displayed: false, data: [protocol: "zigbee", hubHardwareId: device.hub.hardwareID])
-			}
-			else {
+			} else {
 				log.warn "ON/OFF REPORTING CONFIG FAILED- error code:${cluster.data[0]}"
 				event = null
 			}
-		}
-		else {
+		} else {
 			log.warn "DID NOT PARSE MESSAGE for description : $description"
 			log.debug "${cluster}"
 		}
 	}
-	return event
+	return event ? createEvent(event) : event
 }
 
 def off() {
@@ -173,42 +158,6 @@ def configure() {
 	sendEvent(name: "checkInterval", value: 2 * 10 * 60 + 1 * 60, displayed: false, data: [protocol: "zigbee", hubHardwareId: device.hub.hardwareID])
 
 	// OnOff minReportTime 0 seconds, maxReportTime 5 min. Reporting interval if no activity
-	refresh() + zigbee.onOffConfig(0, 300) + powerConfig()
+	refresh() + zigbee.onOffConfig(0, 300) + zigbee.electricMeasurementPowerConfig()
 }
 
-//power config for devices with min reporting interval as 1 seconds and reporting interval if no activity as 10min (600s)
-//min change in value is 01
-def powerConfig() {
-	[
-		"zdo bind 0x${device.deviceNetworkId} 1 ${endpointId} 0x0B04 {${device.zigbeeId}} {}", "delay 200",
-		"zcl global send-me-a-report 0x0B04 0x050B 0x29 1 600 {05 00}",				//The send-me-a-report is custom to the attribute type for CentraLite
-		"send 0x${device.deviceNetworkId} 1 ${endpointId}", "delay 500"
-	]
-}
-
-private getEndpointId() {
-	new BigInteger(device.endpointId, 16).toString()
-}
-
-//TODO: Remove this after getKnownDescription can parse it automatically
-def getPowerDescription(descMap) {
-	def powerValue = "undefined"
-	if (descMap.cluster == "0B04") {
-		if (descMap.attrId == "050b") {
-			if(descMap.value!="ffff")
-				powerValue = zigbee.convertHexToInt(descMap.value)
-		}
-	}
-	else if (descMap.clusterId == "0B04") {
-		if(descMap.command=="07"){
-			return	[type: "update", value : "power (0B04) capability configured successfully"]
-		}
-	}
-
-	if (powerValue != "undefined"){
-		return	[type: "power", value : powerValue]
-	}
-	else {
-		return [:]
-	}
-}
